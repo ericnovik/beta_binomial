@@ -1,0 +1,62 @@
+---
+title: "Binary Updating"
+author: "Eric Novik"
+date: "5/8/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(bayesplot)
+```
+
+## Beta Binomial
+In general if your prior is $beta$ and your likelihood is $binomial$, your posterior is conjugate, in other words it stays in $beta$ with updated parameters. In particular if $\theta$ is the probability of success and $y$ is data (0 or 1), for a single flip, the likelihood contribution is $\theta^y * (1 - \theta)^{1-y}$. For $N$ independent trials, each data point likelihood multiplies and we get $p(y|\theta) = \prod_{n=1}^{N}\theta^y(1 - \theta)^{1-y}$. If we let the prior be $p(\theta) = \frac{1}{B(\alpha, \beta)}\theta^{\alpha-1}(1-\theta)^{\beta-1}$, where $B$ is the [$Beta$](https://en.wikipedia.org/wiki/Beta_function) function, the posterior can be worked out to be $p(\theta|y) \propto \theta^{\alpha-1+y}(1-\theta)^{\beta-1+n-y}$.
+
+In other words, all we do is add the number of successes to one exponent and the number of failures to the other, and we have our posterior.
+
+If we do not have any data, our posterior is our prior, namely $\beta(1, 1)$. You can see that this prior is uniform and so encodes our complete ignorance.
+
+```{r}
+theta <- seq(0, 1, length.out = 100)
+db <- dbeta(theta, 1, 1)
+ggplot(data.frame(theta, db), aes(theta, db)) + geom_line()
+```
+
+Now suppose we observe one success, the posterior becomes $p(\theta|y) = \theta^{\alpha-1+1}(1-\theta)^{\beta-1+1-1}$ or $beta(2, 1)$
+
+```{r}
+db <- dbeta(theta, 2, 1)
+ggplot(data.frame(theta, db), aes(theta, db)) + geom_line()
+```
+
+If we now observe a failure, the posterior becomes $\beta(2, 2)$.
+
+```{r}
+db <- dbeta(theta, 2, 2)
+ggplot(data.frame(theta, db), aes(theta, db)) + geom_line()
+```
+
+The nice thing is that we can update one by one (online learning) or all at once (batch). Suppose, that now we observe 5 more trials, 3 successes and 2 failures. Our new posterior is simply $\beta(5, 4)$.
+
+```{r}
+db <- dbeta(theta, 5, 4)
+ggplot(data.frame(theta, db), aes(theta, db)) + geom_line()
+```
+
+Now suppose we want to compute the probability of the coin bias towards heads (say 1). All we need to do is integrate this function ($\beta(5, 4)$) from $0.5$ to $1$.
+
+```{r}
+ggplot(data.frame(theta = c(0, 1)), aes(theta)) +
+  stat_function(fun = dbeta, args = (list(shape1 = 5, shape2 = 4))) + 
+  stat_function(fun = dbeta, args = (list(shape1 = 5, shape2 = 4)),
+                xlim = c(0.5, 1), geom = "area", fill = "red", alpha = 1/5) +
+  ylab("db")
+```
+
+
+```{r}
+integrate(dbeta, lower = 0.5, upper = 1, shape1 = 5, shape2 = 4)
+```
+
